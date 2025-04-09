@@ -3,6 +3,7 @@
 #include "kernel/types.h"
 #include "user/user.h"
 #include "kernel/fcntl.h"
+#include "kernel/fs.h"
 
 // Parsed command representation
 #define EXEC 1
@@ -140,6 +141,31 @@ void runcmd(struct cmd *cmd)
   exit(0);
 }
 
+void tab_completion(char *buf)
+{
+  char *path = "./";
+
+  int fd;
+  struct dirent de;
+
+  if ((fd = open(path, O_RDONLY)) < 0)
+  {
+    fprintf(2, "ls: cannot open %s\n", path);
+    return;
+  }
+
+  while (read(fd, &de, sizeof(de)) == sizeof(de))
+  {
+
+    if (starts_with(de.name, buf) == 1)
+    {
+      printf("\n%s\n", de.name);
+    }
+  }
+
+  printf("\n$ %s", buf);
+}
+
 int getcmd(char *buf, int nbuf)
 {
   write(2, "$ ", 2);
@@ -148,15 +174,20 @@ int getcmd(char *buf, int nbuf)
   int i, cc;
   char c;
 
-  for(i=0; i+1 <  nbuf; ){
+  for (i = 0; i + 1 < nbuf;)
+  {
     cc = read(0, &c, 1);
-    if(cc < 1)
+    if (cc < 1)
       break;
-    if (c == '\t') {
-      printf("\n%s\n", buf);
+    if (c == '\t')
+    {
+      tab_completion(buf);
     }
-    buf[i++] = c;
-    if(c == '\n' || c == '\r')
+    else
+    {
+      buf[i++] = c;
+    }
+    if (c == '\n' || c == '\r')
       break;
   }
   buf[i] = '\0';
