@@ -159,7 +159,7 @@ void tab_completion(char *buf)
 
     if (starts_with(de.name, buf) == 1)
     {
-      printf("\n%s\n", de.name);
+      printf("\n%s", de.name);
     }
   }
 
@@ -182,6 +182,15 @@ int getcmd(char *buf, int nbuf)
     if (c == '\t')
     {
       tab_completion(buf);
+    }
+    else if (c == '\x7f')
+    {
+      if (i > 0)
+      {
+        i--;
+        buf[i] = 0;
+        write(2, "\b \b", 3); // Output backspace, space, backspace
+      }
     }
     else
     {

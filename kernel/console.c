@@ -194,11 +194,15 @@ void consoleintr(int c)
       break;
     case C('H'): // Backspace
     case '\x7f': // Delete key
-      if (cons.e != cons.w)
-      {
-        cons.e--;
-        consputc(BACKSPACE);
-      }
+      // if (cons.e != cons.w)
+      // {
+      //   cons.e--;
+      //   consputc(BACKSPACE);
+      // }
+      // break;
+      cons.buf[cons.e++ % INPUT_BUF_SIZE] = c;
+      cons.w = cons.e;
+      wakeup(&cons.r);
       break;
     case '\x1b':
       cons.escape_state = ESC_GOT_ESCAPE;
