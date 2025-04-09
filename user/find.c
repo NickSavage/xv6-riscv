@@ -51,7 +51,6 @@ void find(char *path, char *search)
     }
     if (st.type == T_DIR)
     {
-      printf("dir %s\n", buf);
       if ((strcmp(".", de.name) != 0) && (strcmp("..", de.name) != 0))
       {
         find(buf, search);
