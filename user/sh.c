@@ -141,31 +141,59 @@ void runcmd(struct cmd *cmd)
   exit(0);
 }
 
-void tab_completion(char *buf)
+char *tab_completion(char *buf)
 {
   char *path = "./";
 
   int fd;
   struct dirent de;
+  char match_name[256];
 
   if ((fd = open(path, O_RDONLY)) < 0)
   {
     fprintf(2, "ls: cannot open %s\n", path);
-    return;
+    return buf; // return the original buffer
   }
 
+  int count = 0;
   while (read(fd, &de, sizeof(de)) == sizeof(de))
   {
-
     if (starts_with(de.name, buf) == 1)
     {
-      printf("\n%s", de.name);
+      count++;
+      if (count == 1)
+      {
+        strcpy(match_name, de.name);
+      }
     }
   }
+  close(fd);
 
-  printf("\n$ %s", buf);
+  if (count == 1)
+  {
+    strcpy(buf, match_name);
+    // printf("\n$ %s", buf);
+    return buf;
+  }
+
+  if ((fd = open(path, O_RDONLY)) < 0)
+  {
+    fprintf(2, "ls: cannot open %s\n", path);
+    return buf; // return the original buffer
+  }
+
+  printf("\n");
+  while (read(fd, &de, sizeof(de)) == sizeof(de))
+  {
+    if (starts_with(de.name, buf) == 1)
+    {
+      printf("%s\n", de.name);
+    }
+  }
+  close(fd);
+  printf("$ %s", buf);
+  return buf; // return the original buffer
 }
-
 int getcmd(char *buf, int nbuf)
 {
   write(2, "$ ", 2);
@@ -181,7 +209,12 @@ int getcmd(char *buf, int nbuf)
       break;
     if (c == '\t')
     {
-      tab_completion(buf);
+      //      buf[i] = '\0'; // Null-terminate at current position
+      char *completed_buf = tab_completion(buf);
+      i = strlen(completed_buf);
+      strcpy(buf, completed_buf);
+      write(1, "\n$ ", 3);
+      write(1, completed_buf, strlen(completed_buf));
     }
     else if (c == '\x7f')
     {
