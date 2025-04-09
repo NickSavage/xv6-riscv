@@ -144,7 +144,23 @@ int getcmd(char *buf, int nbuf)
 {
   write(2, "$ ", 2);
   memset(buf, 0, nbuf);
-  gets(buf, nbuf);
+
+  int i, cc;
+  char c;
+
+  for(i=0; i+1 <  nbuf; ){
+    cc = read(0, &c, 1);
+    if(cc < 1)
+      break;
+    if (c == '\t') {
+      printf("\n%s\n", buf);
+    }
+    buf[i++] = c;
+    if(c == '\n' || c == '\r')
+      break;
+  }
+  buf[i] = '\0';
+
   if (buf[0] == 0) // EOF
     return -1;
   return 0;
