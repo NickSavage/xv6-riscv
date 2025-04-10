@@ -2,63 +2,82 @@
 #include "kernel/stat.h"
 #include "user/user.h"
 
-void filter_process(int, int);
-int create_filter(int, int);
+// Forward declaration
+void process_numbers(int, int);
 
-
-int create_filter(int input_fd, int output_fd)
+// This function reads the first prime and creates a new filtering process
+void sieve(int input_fd)
 {
-    int pid = fork();
-    if (pid == 0)
+    int prime;
+    // Read the first number (the prime)
+    if (read(input_fd, &prime, sizeof(int)) <= 0)
     {
-        filter_process(input_fd, output_fd);
         close(input_fd);
         exit(0);
     }
-    return pid;
+
+    // Print the prime
+    printf("prime %d\n", prime);
+
+    // Process the remaining numbers
+    process_numbers(input_fd, prime);
 }
-void filter_process(int input_fd, int output_fd)
+
+// This function filters out multiples of prime and passes remaining numbers
+void process_numbers(int input_fd, int prime)
 {
-    int prime, number;
-    if (read(input_fd, &number, sizeof(int)) > 0) {
-        printf("prime %d\n", number);
-        prime = number;
+    // Create a pipe for the next process
+    int p[2];
+    pipe(p);
 
-        int new_pipe[2];
-        pipe(new_pipe);
-        create_filter(new_pipe[0], output_fd);
-
-        close(new_pipe[0]);
-
-        while (read(input_fd, &number, sizeof(int)) > 0) {
-            if (number % prime != 0) {
-                write(new_pipe[1], &number, sizeof(int));
+    if (fork() == 0)
+    {
+        // Child process
+        close(p[1]); // Close write end
+        sieve(p[0]);
+        exit(0);
+    }
+    else
+    {
+        // Parent process
+        close(p[0]); // Close read end
+        int n;
+        while (read(input_fd, &n, sizeof(int)) > 0)
+        {
+            // Pass numbers that aren't multiples of the prime
+            if (n % prime != 0)
+            {
+                write(p[1], &n, sizeof(int));
             }
         }
-
+        close(p[1]); // Close pipe when done
         close(input_fd);
-        close(new_pipe[1]);
-
+        wait(0); // Wait for child to finish
+        exit(0);
     }
 }
 
 int main(int argc, char *argv[])
 {
-    int initial[2];
-    pipe(initial);
-    create_filter(initial[0], initial[1]);
+    int p[2];
+    pipe(p);
+
     if (fork() == 0)
     {
-        close(initial[0]);
-        for (int i = 2; i < 281; i++)
-        {
-            // printf("sending %d", i);
-            write(initial[1], &i, sizeof(int));
-        }
-        close(initial[1]);
+        close(p[1]); // Close write end in child
+        sieve(p[0]);
         exit(0);
     }
-    close(initial[0]);
-    close(initial[1]);
-    exit(0);
+    else
+    {
+        close(p[0]); // Close read end in parent
+        // Write all numbers from 2 to 35
+        for (int i = 2; i <= 50; i++)
+        {
+            write(p[1], &i, sizeof(int));
+        }
+        close(p[1]); // Close pipe when done
+        wait(0);     // Wait for child to finish
+        exit(0);
+    }
 }
