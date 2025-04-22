@@ -215,7 +215,10 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     if (do_free)
     {
       uint64 pa = PTE2PA(*pte);
-      kfree((void *)pa);
+      if (pa >= SUPERPGSTART)
+        ksuperfree((void *)pa);
+      else
+        kfree((void *)pa);
     }
     *pte = 0;
   }
@@ -261,24 +264,51 @@ uvmalloc(pagetable_t pagetable, uint64 oldsz, uint64 newsz, int xperm)
   if (newsz < oldsz)
     return oldsz;
 
-  oldsz = PGROUNDUP(oldsz);
-  for (a = oldsz; a < newsz; a += sz)
+  int n = newsz - oldsz;
+  if (n > SUPERPGSIZE)
   {
-    sz = PGSIZE;
-    mem = kalloc();
-    if (mem == 0)
+    printf("allocating big boy chunks\n");
+    oldsz = SUPERPGROUNDUP(oldsz);
+    sz = SUPERPGSIZE;
+
+    for (a = oldsz; a < newsz; a += sz)
     {
-      uvmdealloc(pagetable, a, oldsz);
-      return 0;
+      mem = ksuperalloc();
+      if (mem == 0)
+      {
+        uvmdealloc(pagetable, a, oldsz);
+        return 0;
+      }
+      memset(mem, 0, sz);
+      if (mappages(pagetable, a, sz, (uint64)mem, PTE_R | PTE_U | xperm) != 0)
+      {
+        ksuperfree(mem);
+        uvmdealloc(pagetable, a, oldsz);
+        return 0;
+      }
     }
-#ifndef LAB_SYSCALL
-    memset(mem, 0, sz);
-#endif
-    if (mappages(pagetable, a, sz, (uint64)mem, PTE_R | PTE_U | xperm) != 0)
+  }
+  else
+  {
+    oldsz = PGROUNDUP(oldsz);
+    for (a = oldsz; a < newsz; a += sz)
     {
-      kfree(mem);
-      uvmdealloc(pagetable, a, oldsz);
-      return 0;
+      sz = PGSIZE;
+      mem = kalloc();
+      if (mem == 0)
+      {
+        uvmdealloc(pagetable, a, oldsz);
+        return 0;
+      }
+#ifndef LAB_SYSCALL
+      memset(mem, 0, sz);
+#endif
+      if (mappages(pagetable, a, sz, (uint64)mem, PTE_R | PTE_U | xperm) != 0)
+      {
+        kfree(mem);
+        uvmdealloc(pagetable, a, oldsz);
+        return 0;
+      }
     }
   }
   return newsz;
